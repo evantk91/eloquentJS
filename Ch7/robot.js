@@ -188,4 +188,134 @@ function goalOrientedRobot({place, parcels}, route) {
    return {direction: route[0], memory: route.slice(1)};
 }
 
-runRobot(VillageState.random(), goalOrientedRobot, []);
+//runRobot(VillageState.random(), goalOrientedRobot, []);
+
+// function that takes two robots and their shared memory
+// It should generate 100 tasks and let each of the robots solve each of these tasks
+// When done, it should output the average number of steps each robot took per task
+
+function countSteps(state, robot, memory) {
+   for(let steps = 0; ; steps++) {
+      if(state.parcels.length == 0) return steps;
+      let action = robot(state, memory);
+      state = state.move(action.direction);
+      memory = action.memory;
+   }
+}
+
+function compareRobots(robot1, memory1, robot2, memory2) {
+   let total1 = 0; let total2 = 0;
+   for(let i = 0; i < 100; i++) {
+      let state = VillageState.random();
+      total1 += countSteps(state, robot1, memory1);
+      total2 += countSteps(state, robot2, memory2);
+   }
+   console.log(`Average turns for robot 1: ${total1 / 100}`);
+   console.log(`Average turns for robot 2: ${total2 / 100}`);
+}
+
+// compareRobots(randomRobot, [], goalOrientedRobot, []);
+
+// Can you write a robot that finishes the delivery task faster than goalOrientedRobot?
+// If you observe that robot's behavior, what obviously stupid things does it do? 
+// How could those be improved?
+
+function findShortestRoute(place, parcels) {
+   let shortestRoute;
+   for(let i = 0; i < parcels.length; i++) {
+      let parcel = parcels[i];
+      if(parcel.place != place) {
+         route = findRoute(roadGraph, place, parcel.place);
+      } else {
+         route = findRoute(roadGraph, place, parcel.address);
+      }
+
+      if(i === 0) {
+         shortestRoute = route;
+      } else {
+         if(route.length < shortestRoute) {
+            shortestRoute = route;
+         }
+      }
+   }
+   return shortestRoute;
+}
+
+function yourRobot({place, parcels}, route) {
+   // whenever route list is empty
+   if(route.length == 0) {
+      route = findShortestRoute(place, parcels);
+   }
+
+   //returns direction the robot is to move and an updated route in the memory
+   return {direction: route[0], memory: route.slice(1)};
+}
+
+function lazyRobot({place, parcels}, route) {
+   if(route.length == 0) {
+      // describe a route for every parcel
+      let routes = parcels.map(parcel => {
+         //if parcel is not picked up, calculate the route to pick up
+         if (parcel.place != place) {
+            return {route: findRoute(roadGraph, place, parcel.place),
+                    pickUp: true};
+         // else calculate the route to drop off           
+         } else {
+            return {route: findRoute(roadGraph, place, parcel.address),
+                    pickUp: false};
+         }  
+      });
+
+      // this determines the precedence a route gets when choosing.
+      // Route length counts negatively, routes that pick up a package
+      // get a small bonus.
+      function score({route, pickUp}) {
+         return (pickUp ? 0.5 : 0) - route.length;
+      }
+      route = routes.reduce((a, b) => score(a) > score(b) ? a : b).route;
+   }
+   return {direction: route[0], memory: route.slice(1)};
+}
+
+// runRobot(VillageState.random(), lazyRobot, []);
+
+// write a new class PGroup, similar to the Group class, which stores a set of values.
+
+// Its add method, however, should return a new PGroup instance with the given member added
+// and leave the old one unchanged. Similarly, delete creates a new instance without a given member
+
+// The constructor shouldn't be part of the class's interface.
+// Instead, there is an empty instance, PGroup.empty, that can be used as a starting value.
+
+class PGroup {
+   constructor(members) {
+      this.members = members;    
+   }
+
+   has(value) {
+      return this.members.includes(value);    
+   }
+
+   add(value) {
+      if(this.has(value)) return this;   
+      return new PGroup(this.members.concat([value]));
+   }
+
+   delete(value) {
+      if(!this.has(value)) return this;  
+      return new PGroup(this.members.filter(v => v !== value));
+   }
+}
+
+PGroup.empty = new PGroup([]);
+
+let a = PGroup.empty.add("a");
+let ab = a.add("b");
+let b = ab.delete("a");
+
+console.log(ab.has("b"));
+// // → true
+console.log(a.has("b"));
+// // → false
+console.log(b);
+// // → false
